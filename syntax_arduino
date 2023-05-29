@@ -1,0 +1,118 @@
+//iseng 
+// koding perangkat
+
+//define
+#define trigger 4
+#define echo 5
+#define led 16
+
+//include
+#include <ESP8266HTTPClient.h>
+#include <ESP8266WiFi.h>
+
+const char* ssid = "Informatika";
+const char* password = "SpitItOut";
+
+long timer;
+int jarak;
+String url;
+WiFiClient client;
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  pinMode(trigger, OUTPUT);
+  pinMode(echo, INPUT);
+  pinMode(led, OUTPUT);
+
+  WiFi.hostname("Pendeteksi_musuh");
+  WiFi.begin(ssid, password);
+
+  while(WiFi.status() != WL_CONNECTED){
+    digitalWrite(led, LOW);
+    delay(500);
+  }
+  digitalWrite(led, HIGH);
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  digitalWrite(trigger, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigger, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigger, LOW);
+
+  timer = pulseIn(echo, HIGH);
+  jarak = timer/58.2;
+
+  Serial.print("jarak : ");
+  Serial.print(jarak);
+  Serial.print(" cm");
+  Serial.println();
+
+  if(jarak < 10){
+    Serial.println("Musuh Terlihat!!");
+    kirim_wa("PERINGATAN!!!\n""MUSUH DI DEPAN MATA!!!\n""TEMBAK SAMAAI MAMPUS!!!");
+  }else if(jarak < 30){
+    Serial.println("PERINGATAN!! MUSUH DALAM JANGKAUAN!! MENGIRIM PERINGATAN KE WHATSAPP");
+    kirim_wa("PERINGATAN!!!\n""MUSUH MENDEKAT DALAM RADIUS 30cm!!!\n""BERSIAP MENEMBAK!!!");
+  }else{
+    Serial.println("belum ada musuh, santai dulu gak sih");
+  }
+  delay(500);
+}
+
+void kirim_wa(String pesan){
+  url = "http://api.callmebot.com/whatsapp.php?phone=6289627482464&text="+ urlencode(pesan)+"&apikey=5515456";
+  postData();
+}
+void postData(){
+  int httpcode;
+  HTTPClient http;
+
+  http.begin(client, url);
+  httpcode = http.POST(url);
+  //test nilai httpcode
+  if(httpcode == 200){
+    Serial.println("Notifikasi whatsapp telah BERHASIL dikirimkan");
+  }
+  else{
+    Serial.println("Notifikasi whatsapp GAGAL terkirim \nCoba periksa kembali");
+  }
+  http.end();
+}
+String urlencode(String str){
+  String encodedString = "";
+  char c;
+  char code0, code1, code2;
+  for(int i=0; i <str.length(); i++){
+    c = str.charAt(i);
+    //apabila terdapat spasi diantara pesan,maka diganti dengan tanda +
+    if(c == ' '){
+      encodedString += '+';
+    }
+    else if(isalnum(c)){
+      encodedString += c;
+    }
+    else {
+      code1 = (c & 0xf) + '0';
+      if((c & 0xf) > 9){
+        code1 = (c & 0xf) - 10 + 'A' ;
+      }
+      c = (c>>4)&0xf;
+      code0 = c+'0';
+      if(c > 9){
+        code0 = c -10 +'A';
+      }
+      code2 = '\0';
+      encodedString += '%';
+      encodedString += code0;
+      encodedString += code1;
+    }
+    yield();
+  }
+  Serial.print(encodedString);
+  return encodedString;
+}
+
